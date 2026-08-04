@@ -1,0 +1,569 @@
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#152a52;
+    --sky-bot:#4a7fc9;
+    --cloud:#7fb0e0;
+    --cloud-light:#cfe6ff;
+    --grass:#2f6e3a;
+    --grass-dark:#245a2e;
+    --dirt:#8b5a3c;
+    --dirt-dark:#754a30;
+    --lane:#c0447a;
+    --lane-light:#e37aa3;
+    --ink:#0d1730;
+    --panel:#0f1d3d;
+    --panel-edge:#2b3d6b;
+    --gold:#ffd23f;
+    --white:#f4f7ff;
+    --good:#5ee08a;
+    --bad:#ff5f6d;
+    --p1:#4ad2ff;
+    --p2:#ff9d4a;
+  }
+  *{box-sizing:border-box; image-rendering:pixelated;}
+  body{margin:0;}
+  #root{
+    font-family:'VT323', monospace;
+    width:100%;
+    min-height:600px;
+    background:linear-gradient(#0a1224,#182b52);
+    color:var(--white);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .pixel-font{ font-family:'Press Start 2P', monospace; }
+  .stage{
+    width:100%;
+    max-width:760px;
+    border:4px solid var(--panel-edge);
+    background:var(--panel);
+    box-shadow:0 0 0 4px var(--ink), 0 12px 0 rgba(0,0,0,0.35);
+    position:relative;
+    overflow:hidden;
+  }
+
+  /* ---------- START SCREEN ---------- */
+  #start-screen{
+    position:relative;
+    height:520px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    background:linear-gradient(var(--sky-top), var(--sky-bot) 70%);
+    overflow:hidden;
+  }
+  .sun{
+    position:absolute; top:36px; right:60px;
+    width:56px; height:56px; border-radius:2px;
+    background:var(--gold);
+    box-shadow:0 0 0 6px rgba(255,210,63,0.18), 0 0 0 14px rgba(255,210,63,0.09);
+  }
+  .cloud{ position:absolute; }
+  .cloud div{ position:absolute; background:var(--cloud); }
+  .cloud .hi{ background:var(--cloud-light); opacity:.55; }
+  .title-wrap{ margin-top:64px; text-align:center; z-index:2; }
+  .title{
+    font-size:38px;
+    color:var(--white);
+    letter-spacing:2px;
+    text-shadow:
+      4px 0 var(--ink), -4px 0 var(--ink), 0 4px var(--ink), 0 -4px var(--ink),
+      4px 4px var(--ink), -4px -4px var(--ink), 4px -4px var(--ink), -4px 4px var(--ink),
+      0 8px 0 rgba(0,0,0,.35);
+  }
+  .title .accent{ color:var(--gold); }
+  .subtitle{
+    margin-top:10px; font-size:13px; letter-spacing:3px; color:var(--cloud-light);
+  }
+  .quote-panel{
+    z-index:2;
+    margin-top:26px;
+    width:82%;
+    background:rgba(10,20,45,0.82);
+    border:2px solid rgba(255,255,255,0.15);
+    padding:14px 18px;
+    font-family:'VT323', monospace;
+    font-size:20px;
+    line-height:1.5;
+    color:var(--cloud-light);
+  }
+  .quote-panel .src{ display:block; margin-top:6px; font-size:15px; color:var(--gold); text-align:right; }
+  .ground{
+    position:absolute; bottom:0; left:0; right:0; height:170px;
+  }
+  .grass-strip{ position:absolute; top:0; left:0; right:0; height:34px; background:var(--grass); }
+  .grass-strip::after{
+    content:""; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(90deg, var(--grass-dark) 0 8px, transparent 8px 16px);
+    opacity:.5;
+  }
+  .track{
+    position:absolute; top:34px; left:0; right:0; bottom:0;
+    background:var(--dirt);
+    background-image:
+      repeating-linear-gradient(90deg, rgba(0,0,0,0.08) 0 3px, transparent 3px 26px),
+      repeating-linear-gradient(0deg, var(--lane) 0 3px, transparent 3px 46px);
+  }
+  .track::before{
+    content:""; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(90deg, var(--lane-light) 0 2px, transparent 2px 92px);
+    opacity:.6;
+  }
+  .difficulty-row{ z-index:2; margin-top:22px; display:flex; gap:10px; }
+  .diff-btn{
+    font-family:'Press Start 2P', monospace;
+    font-size:11px;
+    padding:10px 14px;
+    background:var(--ink);
+    border:2px solid var(--panel-edge);
+    color:var(--cloud-light);
+    cursor:pointer;
+  }
+  .diff-btn.selected{ background:var(--gold); color:var(--ink); border-color:var(--gold); }
+  .start-btn{
+    z-index:2; margin-top:20px; margin-bottom: 30px;
+    font-family:'Press Start 2P', monospace;
+    font-size:14px;
+    padding:14px 22px;
+    background:var(--good);
+    color:var(--ink);
+    border:3px solid var(--ink);
+    box-shadow:0 6px 0 #2c8a55;
+    cursor:pointer;
+    animation:blink 1.6s infinite;
+  }
+  .start-btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #2c8a55; }
+  @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:.75;} }
+
+  /* ---------- GAME SCREEN ---------- */
+  #game-screen{ display:none; padding:18px 20px 22px; }
+  .hud{
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:'Press Start 2P', monospace; font-size:11px;
+    margin-bottom:14px; color:var(--cloud-light);
+  }
+  .hud span.val{ color:var(--gold); }
+  .race{
+    position:relative;
+    background:var(--dirt);
+    border:2px solid var(--dirt-dark);
+    margin-bottom:16px;
+  }
+  .lane{
+    position:relative; height:56px;
+    border-bottom:2px dashed var(--lane-light);
+    background-image: repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0 2px, transparent 2px 24px);
+  }
+  .lane:last-child{ border-bottom:none; }
+  .lane-label{
+    position:absolute; left:4px; top:2px; font-size:9px; font-family:'Press Start 2P',monospace;
+    color:rgba(255,255,255,0.55); z-index:3;
+  }
+  .finish{
+    position:absolute; top:0; right:6px; bottom:0; width:6px;
+    background:repeating-linear-gradient(0deg, #fff 0 6px, #111 6px 12px);
+    z-index:2;
+  }
+  .runner{
+    position:absolute; bottom:2px; left:4px;
+    width:20px; height:26px;
+    transition:left .08s linear;
+    z-index:4;
+  }
+  .runner .head{ position:absolute; top:0; left:5px; width:10px; height:8px; }
+  .runner .body{ position:absolute; top:8px; left:4px; width:12px; height:10px; }
+  .runner .leg{ position:absolute; top:18px; width:5px; height:8px; }
+  .runner.p1 .head, .runner.p1 .body{ background:var(--p1); }
+  .runner.p2 .head, .runner.p2 .body{ background:var(--p2); }
+  .runner .leg{ background:var(--ink); }
+  .runner .leg.l{ left:3px; }
+  .runner .leg.r{ left:11px; }
+  .runner.running .leg.l{ animation:legL .3s infinite steps(2); }
+  .runner.running .leg.r{ animation:legR .3s infinite steps(2); }
+  @keyframes legL{ 0%,100%{ height:8px;} 50%{ height:4px; top:22px;} }
+  @keyframes legR{ 0%,100%{ height:4px; top:22px;} 50%{ height:8px; top:18px;} }
+
+  .prompt-panel{
+    background:var(--ink);
+    border:2px solid var(--panel-edge);
+    padding:16px 18px;
+    font-family:'VT323', monospace;
+    font-size:24px;
+    line-height:1.6;
+    letter-spacing:1px;
+    min-height:110px;
+    white-space:normal;
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+    max-width:100%;
+    box-sizing:border-box;
+  }
+  .prompt-panel .correct{ color:var(--good); }
+  .prompt-panel .incorrect{ color:var(--bad); background:rgba(255,95,109,0.18); }
+  .prompt-panel .current{ color:var(--white); background:var(--gold); color:var(--ink); }
+  .prompt-panel .pending{ color:#5b6a95; }
+  #hidden-input{
+    position:absolute; opacity:0; pointer-events:none; height:0; width:0;
+  }
+  .hint{ margin-top:10px; font-size:13px; color:#5b6a95; text-align:center; }
+
+  /* ---------- RESULT SCREEN ---------- */
+  #result-screen{
+    display:none; padding:34px 26px; text-align:center;
+  }
+  .result-banner{
+    font-family:'Press Start 2P', monospace; font-size:22px; margin-bottom:22px;
+  }
+  .result-banner.win{ color:var(--good); }
+  .result-banner.lose{ color:var(--bad); }
+  .stat-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:26px;
+  }
+  .stat-box{
+    background:var(--ink); border:2px solid var(--panel-edge); padding:14px 6px;
+  }
+  .stat-box .num{ font-family:'Press Start 2P', monospace; font-size:20px; color:var(--gold); }
+  .stat-box .lbl{ font-size:15px; color:var(--cloud-light); margin-top:6px; }
+  .again-btn{
+    font-family:'Press Start 2P', monospace; font-size:13px; padding:14px 20px;
+    background:var(--gold); color:var(--ink); border:3px solid var(--ink);
+    box-shadow:0 6px 0 #b8961f; cursor:pointer;
+  }
+  .again-btn:active{ transform:translateY(4px); box-shadow:0 2px 0 #b8961f; }
+</style>
+
+<div id="root">
+  <div class="stage">
+
+    <!-- START SCREEN -->
+    <div id="start-screen">
+      <div class="sun"></div>
+      <div class="cloud" style="top:50px; left:40px;">
+        <div style="width:60px;height:14px;left:0;top:6px;"></div>
+        <div style="width:34px;height:14px;left:14px;top:0;"></div>
+        <div class="hi" style="width:26px;height:6px;left:6px;top:2px;"></div>
+      </div>
+      <div class="cloud" style="top:90px; left:220px;">
+        <div style="width:44px;height:12px;left:0;top:4px;"></div>
+        <div style="width:26px;height:12px;left:10px;top:0;"></div>
+      </div>
+
+      <div class="title-wrap">
+        <div class="title pixel-font">TYPE<span class="accent">RACE</span></div>
+        <div class="subtitle pixel-font">A KEYSTROKE SPEEDWAY</div>
+      </div>
+
+      <div class="quote-panel" id="preview-quote">Loading today's course...</div>
+
+      <div class="difficulty-row">
+        <button class="diff-btn" data-diff="easy">EASY</button>
+        <button class="diff-btn selected" data-diff="medium">MEDIUM</button>
+        <button class="diff-btn" data-diff="hard">HARD</button>
+      </div>
+
+      <button class="start-btn pixel-font" id="start-btn">PRESS TO START</button>
+
+      <div class="ground">
+        <div class="grass-strip"></div>
+        <div class="track"></div>
+      </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen">
+      <div class="hud">
+        <div>TIME <span class="val" id="hud-time">0.0s</span></div>
+        <div>WPM <span class="val" id="hud-wpm">0</span></div>
+        <div>ACC <span class="val" id="hud-acc">100%</span></div>
+      </div>
+
+      <div class="race">
+        <div class="lane">
+          <span class="lane-label">YOU</span>
+          <div class="runner p1" id="runner-p1">
+            <div class="head"></div><div class="body"></div>
+            <div class="leg l"></div><div class="leg r"></div>
+          </div>
+        </div>
+        <div class="lane">
+          <span class="lane-label">CPU</span>
+          <div class="runner p2" id="runner-p2">
+            <div class="head"></div><div class="body"></div>
+            <div class="leg l"></div><div class="leg r"></div>
+          </div>
+        </div>
+        <div class="finish"></div>
+      </div>
+
+      <div class="prompt-panel" id="prompt-panel"></div>
+      <div class="hint">start typing to begin the race &middot; backspace fixes mistakes</div>
+      <input id="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    </div>
+
+    <!-- RESULT SCREEN -->
+    <div id="result-screen">
+      <div class="result-banner pixel-font" id="result-banner">YOU WIN</div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num" id="res-wpm">0</div><div class="lbl">WPM</div></div>
+        <div class="stat-box"><div class="num" id="res-acc">0%</div><div class="lbl">Accuracy</div></div>
+        <div class="stat-box"><div class="num" id="res-time">0.0s</div><div class="lbl">Time</div></div>
+      </div>
+      <button class="again-btn pixel-font" id="again-btn">RACE AGAIN</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const QUOTES = [
+    { text:"He picked up his guitar and played a simple melody that echoed through the quiet empty room.", src:"J. BLOCK" },
+    { text:"The old lighthouse keeper watched the storm roll in, knowing this would be his last long night at sea.", src:"M. HALE" },
+    { text:"Somewhere between the first draft and the last edit, the story finally found its own true voice.", src:"R. OYELARAN" },
+    { text:"A quick fox cannot win every race, but it always learns something new about the track.", src:"UNKNOWN" },
+    { text:"Practice does not make perfect, but it does make the fingers faster and the mind much calmer.", src:"T. NAKASHIMA" },
+    { text:"The rocket cleared the tower in silence before the sound of the engines finally arrived.", src:"C. OKONKWO" }
+  ];
+
+  const DIFF = {
+    easy:   { wpm:28, label:"EASY" },
+    medium: { wpm:52, label:"MEDIUM" },
+    hard:   { wpm:78, label:"HARD" }
+  };
+
+  let difficulty = "medium";
+  let quote = null;
+  let typed = "";
+  let startTime = null;
+  let endTime = null;
+  let mistakes = 0;
+  let totalKeystrokes = 0;
+  let raceOver = false;
+  let cpuFinished = false;
+  let playerFinished = false;
+  let rafId = null;
+
+  const startScreen = document.getElementById('start-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const resultScreen = document.getElementById('result-screen');
+  const previewQuote = document.getElementById('preview-quote');
+  const promptPanel = document.getElementById('prompt-panel');
+  const hiddenInput = document.getElementById('hidden-input');
+  const runnerP1 = document.getElementById('runner-p1');
+  const runnerP2 = document.getElementById('runner-p2');
+  const hudTime = document.getElementById('hud-time');
+  const hudWpm = document.getElementById('hud-wpm');
+  const hudAcc = document.getElementById('hud-acc');
+
+  function pickQuote(){
+    return QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  }
+
+  function renderPreview(){
+    quote = pickQuote();
+    previewQuote.innerHTML = quote.text + '<span class="src">— ' + quote.src + '</span>';
+  }
+  renderPreview();
+
+  document.querySelectorAll('.diff-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      difficulty = btn.dataset.diff;
+    });
+  });
+
+  let audioCtx = null;
+  function beep(freq, dur){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'square';
+      o.frequency.value = freq;
+      g.gain.value = 0.04;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+      o.stop(audioCtx.currentTime + dur);
+    }catch(e){}
+  }
+
+  function startRace(){
+    quote = pickQuote();
+    typed = "";
+    startTime = null;
+    endTime = null;
+    mistakes = 0;
+    totalKeystrokes = 0;
+    raceOver = false;
+    cpuFinished = false;
+    playerFinished = false;
+
+    startScreen.style.display = 'none';
+    resultScreen.style.display = 'none';
+    gameScreen.style.display = 'block';
+
+    runnerP1.style.left = '4px';
+    runnerP2.style.left = '4px';
+    runnerP1.classList.remove('running');
+    runnerP2.classList.remove('running');
+
+    renderPrompt();
+    hiddenInput.value = "";
+    hiddenInput.focus();
+
+    if(rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function renderPrompt(){
+    const text = quote.text;
+    let html = "";
+    for(let i=0;i<text.length;i++){
+      const ch = text[i];
+      const display = escapeHtml(ch);
+      if(i < typed.length){
+        html += '<span class="' + (typed[i] === ch ? 'correct' : 'incorrect') + '">' + display + '</span>';
+      } else if(i === typed.length){
+        html += '<span class="current">' + display + '</span>';
+      } else {
+        html += '<span class="pending">' + display + '</span>';
+      }
+    }
+    promptPanel.innerHTML = html;
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function trackWidth(){
+    return runnerP1.parentElement.parentElement.clientWidth - 30;
+  }
+
+  function updatePlayerPosition(){
+    const total = quote.text.length;
+    const correctCount = countCorrect();
+    const pct = Math.min(1, correctCount / total);
+    runnerP1.style.left = (4 + pct * trackWidth()) + 'px';
+    if(pct >= 1 && !playerFinished){
+      playerFinished = true;
+      finishRace();
+    }
+  }
+
+  function countCorrect(){
+    // Race progress is based on characters attempted (typed length),
+    // while accuracy is tracked separately via totalKeystrokes/mistakes.
+    return typed.length;
+  }
+
+  function tick(ts){
+    if(raceOver) return;
+    if(startTime){
+      const elapsed = (performance.now() - startTime) / 1000;
+      hudTime.textContent = elapsed.toFixed(1) + 's';
+
+      const wordsTyped = typed.length / 5;
+      const minutes = elapsed / 60;
+      const wpm = minutes > 0 ? Math.round(wordsTyped / minutes) : 0;
+      hudWpm.textContent = wpm;
+
+      const acc = totalKeystrokes > 0 ? Math.max(0, Math.round(100 * (totalKeystrokes - mistakes) / totalKeystrokes)) : 100;
+      hudAcc.textContent = acc + '%';
+
+      const cpuWpm = DIFF[difficulty].wpm;
+      const cpuCharsPerSec = (cpuWpm * 5) / 60;
+      const cpuChars = Math.min(quote.text.length, elapsed * cpuCharsPerSec);
+      const cpuPct = cpuChars / quote.text.length;
+      runnerP2.style.left = (4 + cpuPct * trackWidth()) + 'px';
+      if(cpuPct >= 1 && !cpuFinished){
+        cpuFinished = true;
+        if(!playerFinished) finishRace();
+      }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function finishRace(){
+    if(raceOver) return;
+    raceOver = true;
+    endTime = performance.now();
+    runnerP1.classList.remove('running');
+    runnerP2.classList.remove('running');
+    cancelAnimationFrame(rafId);
+
+    const elapsed = (endTime - startTime) / 1000;
+    const wordsTyped = quote.text.length / 5;
+    const minutes = elapsed / 60;
+    const wpm = minutes > 0 ? Math.round(wordsTyped / minutes) : 0;
+    const acc = totalKeystrokes > 0 ? Math.max(0, Math.round(100 * (totalKeystrokes - mistakes) / totalKeystrokes)) : 100;
+
+    const playerWon = playerFinished;
+
+    setTimeout(()=>{
+      showResult(playerWon, wpm, acc, elapsed);
+    }, 350);
+
+    beep(playerWon ? 880 : 220, playerWon ? 0.18 : 0.3);
+  }
+
+  function showResult(playerWon, wpm, acc, elapsed){
+    gameScreen.style.display = 'none';
+    resultScreen.style.display = 'block';
+    const banner = document.getElementById('result-banner');
+    banner.textContent = playerWon ? "YOU WIN!" : "CPU WINS";
+    banner.className = 'result-banner pixel-font ' + (playerWon ? 'win' : 'lose');
+    document.getElementById('res-wpm').textContent = wpm;
+    document.getElementById('res-acc').textContent = acc + '%';
+    document.getElementById('res-time').textContent = elapsed.toFixed(1) + 's';
+  }
+
+  hiddenInput.addEventListener('keydown', (e)=>{
+    if(raceOver) return;
+    if(e.key === 'Backspace'){
+      e.preventDefault();
+      if(typed.length > 0){
+        typed = typed.slice(0, -1);
+        renderPrompt();
+        updatePlayerPosition();
+      }
+      return;
+    }
+    if(e.key.length !== 1) return;
+    e.preventDefault();
+
+    if(!startTime){
+      startTime = performance.now();
+      runnerP1.classList.add('running');
+      runnerP2.classList.add('running');
+    }
+
+    const expected = quote.text[typed.length];
+    totalKeystrokes++;
+    if(e.key !== expected){
+      mistakes++;
+      beep(160, 0.08);
+    } else {
+      beep(660, 0.04);
+    }
+    typed += e.key;
+    renderPrompt();
+    updatePlayerPosition();
+  });
+
+  document.getElementById('start-btn').addEventListener('click', startRace);
+  document.getElementById('again-btn').addEventListener('click', ()=>{
+    resultScreen.style.display = 'none';
+    startScreen.style.display = 'flex';
+    renderPreview();
+  });
+
+  gameScreen.addEventListener('click', ()=> hiddenInput.focus());
+})();
+</script>

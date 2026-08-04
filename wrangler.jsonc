@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "typerace-party",
+  "main": "workers/race/server.ts",
+  "compatibility_date": "2025-07-15",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RaceServer",
+        "class_name": "RaceServer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RaceServer"]
+    }
+  ]
+}
