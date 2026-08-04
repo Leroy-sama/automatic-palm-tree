@@ -7,14 +7,29 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'vercel',
   },
+
+  /**
+   * Nuxt env contract (prefer this over process.env in app/server code):
+   * - Private keys → server-only via useRuntimeConfig()
+   * - public.* → available on client too (never put secrets here)
+   * - Override at runtime with matching NUXT_ / NUXT_PUBLIC_ env vars
+   *
+   *   authSecret          ← NUXT_AUTH_SECRET
+   *   tursoDatabaseUrl    ← NUXT_TURSO_DATABASE_URL
+   *   tursoAuthToken      ← NUXT_TURSO_AUTH_TOKEN
+   *   public.partyHost    ← NUXT_PUBLIC_PARTY_HOST
+   */
   runtimeConfig: {
+    // server-only
+    authSecret: '',
     tursoDatabaseUrl: '',
     tursoAuthToken: '',
-    authSecret: '',
     public: {
+      // client + server
       partyHost: '',
     },
   },
+
   auth: {
     baseURL: '/api/auth',
     provider: {

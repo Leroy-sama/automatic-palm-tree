@@ -28,7 +28,9 @@
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
+    "@types/node": "^26.1.2",
     "drizzle-kit": "^0.31.10",
+    "typescript": "^5.9.3",
     "wrangler": "^4.115.0"
   }
 }
