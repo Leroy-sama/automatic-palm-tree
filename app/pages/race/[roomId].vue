@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import PartySocket from 'partysocket'
-import type { Lane } from '~/components/RaceTrack.vue'
+import type { Lane, LaneColor } from '~/components/RaceTrack.vue'
 import type { Quote } from '~/utils/quotes'
 
 definePageMeta({ layout: 'default' })
+
+const LANE_COLORS: LaneColor[] = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']
 
 type Player = {
   id: string
@@ -80,8 +82,17 @@ const lanes = computed<Lane[]>(() =>
       label: p.name,
       pct: p.id === playerId.value ? playerPct.value : p.progress,
       running: roomState.value.status === 'racing' && !p.finished,
-      colorClass: (i % 2 === 0 ? 'p1' : 'p2') as 'p1' | 'p2',
+      colorClass: LANE_COLORS[i % LANE_COLORS.length],
     })),
+)
+
+const activePlayerCount = computed(
+  () => Object.values(roomState.value.players).filter((p) => !p.disconnected).length,
+)
+
+const readyCount = computed(
+  () =>
+    Object.values(roomState.value.players).filter((p) => !p.disconnected && p.ready).length,
 )
 
 const winnerLabel = computed(() => {
@@ -242,6 +253,10 @@ onMounted(() => {
   socket.addEventListener('message', (ev) => {
     try {
       const data = JSON.parse(String(ev.data))
+      if (data.type === 'error' && data.message) {
+        connectionError.value = String(data.message)
+        return
+      }
       if (data.type === 'state') onState(data.state as RoomState)
     } catch {
       /* ignore */
@@ -307,6 +322,10 @@ const showLobby = computed(
         {{ connected ? 'Connected' : 'Connecting…' }}
         · You are <strong>{{ displayName }}</strong>
       </p>
+      <p class="cta-note">
+        Racers {{ activePlayerCount }}/8 · Ready {{ readyCount }}/{{ activePlayerCount || 0 }}
+        · Need 2+ all ready to start
+      </p>
       <div class="btn-row">
         <button
           type="button"
@@ -334,6 +353,10 @@ const showLobby = computed(
           <span :class="{ ready: p.ready }">{{ p.ready ? 'READY' : '…' }}</span>
         </li>
       </ul>
+      <p class="cta-note">
+        Friends: home → <strong>JOIN ROOM</strong> → paste this link or code
+        <code class="room-code">{{ roomId }}</code>
+      </p>
       <p class="cta-note">
         <NuxtLink to="/">← Back home</NuxtLink>
       </p>

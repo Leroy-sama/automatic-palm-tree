@@ -34,6 +34,8 @@ function pickQuote(seed: string) {
   return QUOTES[h % QUOTES.length]!
 }
 
+const MAX_PLAYERS = 8
+
 export class RaceServer extends Server {
   state: RoomState = {
     status: 'lobby',
@@ -80,6 +82,16 @@ export class RaceServer extends Server {
         existing.disconnected = false
         existing.name = name.slice(0, 24) || existing.name
       } else if (this.state.status === 'lobby' || this.state.status === 'finished') {
+        const activeCount = Object.values(this.state.players).filter((p) => !p.disconnected).length
+        if (activeCount >= MAX_PLAYERS) {
+          conn.send(
+            JSON.stringify({
+              type: 'error',
+              message: `Room is full (max ${MAX_PLAYERS} racers)`,
+            }),
+          )
+          return
+        }
         this.state.players[playerId] = {
           id: playerId,
           name: name.slice(0, 24) || `Guest-${playerId.slice(0, 4)}`,
@@ -92,6 +104,12 @@ export class RaceServer extends Server {
         }
       } else {
         // late join — spectate only (no player entry)
+        conn.send(
+          JSON.stringify({
+            type: 'error',
+            message: 'Race already started — you can watch, but not join this round',
+          }),
+        )
         conn.send(JSON.stringify({ type: 'state', state: this.state }))
         return
       }

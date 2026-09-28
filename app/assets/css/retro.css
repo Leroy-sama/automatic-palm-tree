@@ -423,6 +423,36 @@ a:hover {
   background: var(--p2);
 }
 
+.runner.p3 .head,
+.runner.p3 .body {
+  background: var(--good);
+}
+
+.runner.p4 .head,
+.runner.p4 .body {
+  background: #c084fc;
+}
+
+.runner.p5 .head,
+.runner.p5 .body {
+  background: #f472b6;
+}
+
+.runner.p6 .head,
+.runner.p6 .body {
+  background: #38bdf8;
+}
+
+.runner.p7 .head,
+.runner.p7 .body {
+  background: #fbbf24;
+}
+
+.runner.p8 .head,
+.runner.p8 .body {
+  background: #fb923c;
+}
+
 .runner .leg.l {
   left: 3px;
 }
@@ -697,10 +727,45 @@ a:hover {
   align-items: center;
   margin-top: 28px;
   z-index: 2;
+  width: 90%;
+  max-width: 420px;
+}
+
+.join-box {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.join-input {
+  flex: 1;
+  min-width: 0;
+  font-family: 'VT323', monospace;
+  font-size: 20px;
+  padding: 10px 12px;
+  background: var(--ink);
+  border: 2px solid var(--panel-edge);
+  color: var(--white);
+}
+
+.join-input::placeholder {
+  color: #5b6a95;
 }
 
 .cta-note {
   margin-top: 16px;
   font-size: 16px;
   color: var(--cloud-light);
+}
+
+.room-code {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  background: var(--ink);
+  border: 1px solid var(--panel-edge);
+  color: var(--gold);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
 }

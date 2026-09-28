@@ -1,8 +1,13 @@
 <script setup lang="ts">
+import { parseRoomId } from '~/utils/roomId'
+
 definePageMeta({ layout: 'default' })
 
 const creating = ref(false)
+const joining = ref(false)
 const error = ref('')
+const joinInput = ref('')
+const showJoin = ref(false)
 
 async function createRoom() {
   creating.value = true
@@ -14,6 +19,21 @@ async function createRoom() {
     error.value = e?.data?.message || 'Could not create room'
   } finally {
     creating.value = false
+  }
+}
+
+async function joinRoom() {
+  error.value = ''
+  const roomId = parseRoomId(joinInput.value)
+  if (!roomId) {
+    error.value = 'Enter a room code or paste a race link'
+    return
+  }
+  joining.value = true
+  try {
+    await navigateTo(`/race/${roomId}`)
+  } finally {
+    joining.value = false
   }
 }
 </script>
@@ -47,6 +67,38 @@ async function createRoom() {
       >
         {{ creating ? 'CREATING…' : 'CREATE ROOM' }}
       </button>
+      <button
+        type="button"
+        class="action-btn pixel-font"
+        :class="{ secondary: showJoin }"
+        @click="showJoin = !showJoin"
+      >
+        JOIN ROOM
+      </button>
+
+      <form
+        v-if="showJoin"
+        class="join-box"
+        @submit.prevent="joinRoom"
+      >
+        <input
+          v-model="joinInput"
+          class="join-input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Room code or paste link"
+          aria-label="Room code or race link"
+        >
+        <button
+          type="submit"
+          class="action-btn pixel-font"
+          :disabled="joining || !joinInput.trim()"
+        >
+          {{ joining ? '…' : 'GO' }}
+        </button>
+      </form>
+
       <NuxtLink
         to="/leaderboard"
         class="action-btn secondary pixel-font"
@@ -59,6 +111,9 @@ async function createRoom() {
         class="form-error"
       >
         {{ error }}
+      </p>
+      <p class="cta-note">
+        Multiplayer: 2–8 racers · share a link or enter a code
       </p>
     </div>
 
