@@ -42,7 +42,7 @@ defineExpose({ focusInput })
     <RaceTrack :lanes="lanes" />
     <TypingPrompt :chars="chars" />
     <div class="hint">
-      {{ hint ?? 'start typing to begin · mistakes step you back one letter' }}
+      {{ hint ?? 'start typing to begin · wrong keys stay on the same letter' }}
     </div>
     <input
       ref="inputEl"

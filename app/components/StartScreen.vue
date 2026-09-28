@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import type { Difficulty } from '~/utils/quotes'
-import type { Quote } from '~/utils/quotes'
+import type { Difficulty, Quote, TextHardness } from '~/utils/quotes'
 
 const props = defineProps<{
   preview: Quote
   difficulty: Difficulty
+  textHardness: TextHardness
 }>()
 
 const emit = defineEmits<{
   start: []
   'update:difficulty': [Difficulty]
+  'update:textHardness': [Partial<TextHardness>]
 }>()
 
 const diffs: Difficulty[] = ['easy', 'medium', 'hard']
@@ -48,6 +49,26 @@ const diffs: Difficulty[] = ['easy', 'medium', 'hard']
         @click="emit('update:difficulty', d)"
       >
         {{ d.toUpperCase() }}
+      </button>
+    </div>
+
+    <div class="hardness-row">
+      <span class="hardness-label pixel-font">TEXT</span>
+      <button
+        type="button"
+        class="diff-btn"
+        :class="{ selected: textHardness.caps }"
+        @click="emit('update:textHardness', { caps: !textHardness.caps })"
+      >
+        CAPS
+      </button>
+      <button
+        type="button"
+        class="diff-btn"
+        :class="{ selected: textHardness.punctuation }"
+        @click="emit('update:textHardness', { punctuation: !textHardness.punctuation })"
+      >
+        PUNCT
       </button>
     </div>
 

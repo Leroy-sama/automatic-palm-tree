@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { Lane } from '~/components/RaceTrack.vue'
-import type { Difficulty } from '~/utils/quotes'
+import type { Difficulty, TextHardness } from '~/utils/quotes'
 
 definePageMeta({ layout: 'default' })
 
 const {
   difficulty,
+  textHardness,
   previewQuote,
   screen,
   running,
@@ -18,6 +19,7 @@ const {
   promptChars,
   refreshPreview,
   setDifficulty,
+  setTextHardness,
   configure,
   startRace,
   backToStart,
@@ -97,6 +99,10 @@ function onStart() {
 function onDiff(d: Difficulty) {
   setDifficulty(d)
 }
+
+function onHardness(partial: Partial<TextHardness>) {
+  setTextHardness(partial)
+}
 </script>
 
 <template>
@@ -104,7 +110,9 @@ function onDiff(d: Difficulty) {
     v-if="screen === 'start'"
     :preview="previewQuote"
     :difficulty="difficulty"
+    :text-hardness="textHardness"
     @update:difficulty="onDiff"
+    @update:text-hardness="onHardness"
     @start="onStart"
   />
   <GameScreen

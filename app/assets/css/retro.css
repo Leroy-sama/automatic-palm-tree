@@ -96,7 +96,9 @@ a:hover {
 /* ---------- START SCREEN ---------- */
 .start-screen {
   position: relative;
-  height: 520px;
+  min-height: 560px;
+  height: auto;
+  padding-bottom: 180px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -241,11 +243,25 @@ a:hover {
   opacity: 0.6;
 }
 
-.difficulty-row {
+.difficulty-row,
+.hardness-row {
   z-index: 2;
-  margin-top: 22px;
+  margin-top: 14px;
   display: flex;
   gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hardness-row {
+  margin-top: 10px;
+}
+
+.hardness-label {
+  font-size: 9px;
+  color: var(--cloud-light);
+  letter-spacing: 1px;
 }
 
 .diff-btn {

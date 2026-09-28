@@ -1,7 +1,10 @@
 import {
   DIFF,
+  DEFAULT_TEXT_HARDNESS,
   type Difficulty,
   type Quote,
+  type TextHardness,
+  calcWpm,
   correctPrefixLength,
   pickQuote,
 } from '~/utils/quotes'
@@ -43,7 +46,8 @@ function beep(freq: number, dur: number) {
 
 export function useTypingEngine() {
   const difficulty = ref<Difficulty>('medium')
-  const previewQuote = ref<Quote>(pickQuote())
+  const textHardness = ref<TextHardness>({ ...DEFAULT_TEXT_HARDNESS })
+  const previewQuote = ref<Quote>(pickQuote(undefined, textHardness.value))
   const quote = ref<Quote | null>(null)
   const typed = ref('')
   const startTime = ref<number | null>(null)
@@ -62,8 +66,11 @@ export function useTypingEngine() {
   const cpuPct = ref(0)
   const result = ref<RaceResult | null>(null)
   const inputLocked = ref(false)
+  /** Flash current char red briefly on wrong key (stuck mode). */
+  const missFlash = ref(false)
 
   let rafId: number | null = null
+  let missFlashTimer: ReturnType<typeof setTimeout> | null = null
   let externalQuote: Quote | null = null
   let onProgress: ((pct: number, wpm: number, acc: number) => void) | null = null
   let onFinish: ((r: RaceResult) => void) | null = null
@@ -74,19 +81,26 @@ export function useTypingEngine() {
     const t = typed.value
     return [...text].map((ch, i) => {
       if (i < t.length) {
-        return { ch, kind: t[i] === ch ? 'correct' : 'incorrect' }
+        return { ch, kind: 'correct' as const }
       }
-      if (i === t.length) return { ch, kind: 'current' }
-      return { ch, kind: 'pending' }
+      if (i === t.length) {
+        return { ch, kind: missFlash.value ? 'incorrect' : 'current' }
+      }
+      return { ch, kind: 'pending' as const }
     })
   })
 
   function refreshPreview() {
-    previewQuote.value = pickQuote()
+    previewQuote.value = pickQuote(undefined, textHardness.value)
   }
 
   function setDifficulty(d: Difficulty) {
     difficulty.value = d
+  }
+
+  function setTextHardness( partial: Partial<TextHardness>) {
+    textHardness.value = { ...textHardness.value, ...partial }
+    refreshPreview()
   }
 
   function configure(opts: {
@@ -118,6 +132,11 @@ export function useTypingEngine() {
       : 100
   }
 
+  function correctCharsNow() {
+    const text = quote.value?.text ?? ''
+    return correctPrefixLength(text, typed.value)
+  }
+
   function updatePlayerPosition() {
     const text = quote.value?.text
     if (!text) return
@@ -133,12 +152,11 @@ export function useTypingEngine() {
   function tick() {
     if (raceOver.value) return
     if (startTime.value) {
+      // Always use wall time from first key — idle seconds pull WPM down
       const elapsed = (performance.now() - startTime.value) / 1000
       hudTime.value = elapsed
 
-      const wordsTyped = typed.value.length / 5
-      const minutes = elapsed / 60
-      const wpm = minutes > 0 ? Math.round(wordsTyped / minutes) : 0
+      const wpm = calcWpm(correctCharsNow(), elapsed)
       hudWpm.value = wpm
       hudAcc.value = accuracyNow()
 
@@ -169,10 +187,8 @@ export function useTypingEngine() {
 
     const started = startTime.value ?? endTime.value!
     const elapsed = (endTime.value! - started) / 1000
-    const textLen = quote.value?.text.length ?? 0
-    const wordsTyped = textLen / 5
-    const minutes = elapsed / 60
-    const wpm = minutes > 0 ? Math.round(wordsTyped / minutes) : 0
+    // Save real WPM from chars actually typed correctly — not full quote if you lost mid-way
+    const wpm = calcWpm(correctCharsNow(), elapsed)
     const acc = accuracyNow()
     const playerWon = playerFinished.value
 
@@ -193,7 +209,7 @@ export function useTypingEngine() {
   }
 
   function startRace() {
-    quote.value = externalQuote ?? pickQuote()
+    quote.value = externalQuote ?? pickQuote(undefined, textHardness.value)
     typed.value = ''
     startTime.value = null
     endTime.value = null
@@ -209,6 +225,7 @@ export function useTypingEngine() {
     hudWpm.value = 0
     hudAcc.value = 100
     result.value = null
+    missFlash.value = false
     screen.value = 'game'
 
     if (rafId) cancelAnimationFrame(rafId)
@@ -231,8 +248,18 @@ export function useTypingEngine() {
     rafId = null
   }
 
+  function flashMiss() {
+    missFlash.value = true
+    if (missFlashTimer) clearTimeout(missFlashTimer)
+    missFlashTimer = setTimeout(() => {
+      missFlash.value = false
+    }, 120)
+  }
+
   function onKeydown(e: KeyboardEvent) {
     if (raceOver.value || inputLocked.value || screen.value !== 'game') return
+    // Stuck mode: no backspace needed for mistakes (wrong keys never append).
+    // Still allow undoing correct progress.
     if (e.key === 'Backspace') {
       e.preventDefault()
       if (typed.value.length > 0) {
@@ -252,16 +279,14 @@ export function useTypingEngine() {
     const expected = quote.value!.text[typed.value.length]
     totalKeystrokes.value++
     if (e.key !== expected) {
-      // Mistake: don't append (that stalls until backspace) — step back one char instead
+      // Stay on the same letter until correct — no advance, no step-back
       mistakes.value++
       beep(160, 0.08)
-      if (typed.value.length > 0) {
-        typed.value = typed.value.slice(0, -1)
-      }
-      updatePlayerPosition()
+      flashMiss()
       return
     }
     beep(660, 0.04)
+    missFlash.value = false
     typed.value += e.key
     updatePlayerPosition()
   }
@@ -269,10 +294,12 @@ export function useTypingEngine() {
   function destroy() {
     if (rafId) cancelAnimationFrame(rafId)
     rafId = null
+    if (missFlashTimer) clearTimeout(missFlashTimer)
   }
 
   return {
     difficulty,
+    textHardness,
     previewQuote,
     quote,
     typed,
@@ -289,6 +316,7 @@ export function useTypingEngine() {
     inputLocked,
     refreshPreview,
     setDifficulty,
+    setTextHardness,
     configure,
     unlockInput,
     startRace,

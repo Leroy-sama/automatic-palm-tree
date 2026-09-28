@@ -35,6 +35,7 @@ const roomState = ref<RoomState>({
   players: {},
 })
 const connected = ref(false)
+const connectionError = ref('')
 const countdownLabel = ref('')
 const scoreSaved = ref<boolean | null>(null)
 const isNewBest = ref<boolean | null>(null)
@@ -196,12 +197,25 @@ function onState(state: RoomState) {
 
 onMounted(() => {
   ensurePlayerId()
-  const host = config.public.partyHost as string
-  if (!host) {
-    console.warn('NUXT_PUBLIC_PARTY_HOST not set — multiplayer disabled')
-    return
+  const host = (config.public.partyHost as string)?.trim()
+  if (!host || host === 'localhost:8787') {
+    // localhost only works in local dev — on Vercel it means multiplayer isn't configured
+    const isLocal =
+      import.meta.client &&
+      (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    if (!host) {
+      connectionError.value =
+        'Multiplayer is not configured. Set NUXT_PUBLIC_PARTY_HOST to your Cloudflare Worker URL (pnpm party:deploy).'
+      return
+    }
+    if (!isLocal && host.includes('localhost')) {
+      connectionError.value =
+        'Rooms need a deployed PartyServer. Run pnpm party:deploy, then set NUXT_PUBLIC_PARTY_HOST on Vercel to your *.workers.dev host (not localhost).'
+      return
+    }
   }
 
+  connectionError.value = ''
   socket = new PartySocket({
     host,
     party: 'race-server',
@@ -210,10 +224,20 @@ onMounted(() => {
 
   socket.addEventListener('open', () => {
     connected.value = true
+    connectionError.value = ''
     send({ type: 'join', playerId: playerId.value, name: displayName.value })
   })
   socket.addEventListener('close', () => {
     connected.value = false
+    if (!connectionError.value) {
+      connectionError.value =
+        'Lost connection to the race server. Check that the Party Worker is deployed and NUXT_PUBLIC_PARTY_HOST is correct.'
+    }
+  })
+  socket.addEventListener('error', () => {
+    connected.value = false
+    connectionError.value =
+      'Could not connect to the race server. Deploy with pnpm party:deploy and set NUXT_PUBLIC_PARTY_HOST on Vercel.'
   })
   socket.addEventListener('message', (ev) => {
     try {
@@ -269,7 +293,17 @@ const showLobby = computed(
 
     <template v-if="showLobby && screen !== 'game' && screen !== 'result'">
       <h1>ROOM {{ roomId }}</h1>
-      <p class="cta-note">
+      <p
+        v-if="connectionError"
+        class="form-error"
+        style="max-width: 520px; margin: 0 auto 16px; line-height: 1.5"
+      >
+        {{ connectionError }}
+      </p>
+      <p
+        v-else
+        class="cta-note"
+      >
         {{ connected ? 'Connected' : 'Connecting…' }}
         · You are <strong>{{ displayName }}</strong>
       </p>
@@ -285,7 +319,7 @@ const showLobby = computed(
           type="button"
           class="action-btn pixel-font"
           :class="{ secondary: me?.ready }"
-          :disabled="!me"
+          :disabled="!me || !connected || !!connectionError"
           @click="toggleReady"
         >
           {{ me?.ready ? 'UNREADY' : 'READY' }}
@@ -300,11 +334,8 @@ const showLobby = computed(
           <span :class="{ ready: p.ready }">{{ p.ready ? 'READY' : '…' }}</span>
         </li>
       </ul>
-      <p
-        v-if="!config.public.partyHost"
-        class="form-error"
-      >
-        Set NUXT_PUBLIC_PARTY_HOST to enable multiplayer.
+      <p class="cta-note">
+        <NuxtLink to="/">← Back home</NuxtLink>
       </p>
     </template>
 
