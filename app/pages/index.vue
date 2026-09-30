@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { parseRoomId } from '~/utils/roomId'
-
 definePageMeta({ layout: 'default' })
+
+type LobbyRow = {
+  roomId: string
+  hostName: string
+  playerCount: number
+  updatedAt: number
+}
 
 const creating = ref(false)
 const joining = ref(false)
 const error = ref('')
-const joinInput = ref('')
 const showJoin = ref(false)
+const lobbies = ref<LobbyRow[]>([])
+const loadingLobbies = ref(false)
 
 async function createRoom() {
   creating.value = true
@@ -22,14 +28,26 @@ async function createRoom() {
   }
 }
 
-async function joinRoom() {
+async function refreshLobbies() {
+  loadingLobbies.value = true
   error.value = ''
-  const roomId = parseRoomId(joinInput.value)
-  if (!roomId) {
-    error.value = 'Enter a room code or paste a race link'
-    return
+  try {
+    lobbies.value = await $fetch<LobbyRow[]>('/api/lobbies')
+  } catch (e: any) {
+    error.value = e?.data?.message || 'Could not load lobbies'
+  } finally {
+    loadingLobbies.value = false
   }
+}
+
+async function openJoin() {
+  showJoin.value = !showJoin.value
+  if (showJoin.value) await refreshLobbies()
+}
+
+async function joinLobby(roomId: string) {
   joining.value = true
+  error.value = ''
   try {
     await navigateTo(`/race/${roomId}`)
   } finally {
@@ -78,33 +96,51 @@ async function joinRoom() {
         type="button"
         class="action-btn pixel-font"
         :class="{ secondary: showJoin }"
-        @click="showJoin = !showJoin"
+        @click="openJoin"
       >
         JOIN ROOM
       </button>
 
-      <form
+      <div
         v-if="showJoin"
-        class="join-box"
-        @submit.prevent="joinRoom"
+        class="lobby-browser"
       >
-        <input
-          v-model="joinInput"
-          class="join-input"
-          type="text"
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="Room code or paste link"
-          aria-label="Room code or race link"
+        <div class="btn-row" style="margin-top: 0; margin-bottom: 10px">
+          <button
+            type="button"
+            class="action-btn secondary pixel-font"
+            :disabled="loadingLobbies"
+            @click="refreshLobbies"
+          >
+            {{ loadingLobbies ? '…' : 'REFRESH' }}
+          </button>
+        </div>
+        <ul
+          v-if="lobbies.length"
+          class="lobby-list"
         >
-        <button
-          type="submit"
-          class="action-btn pixel-font"
-          :disabled="joining || !joinInput.trim()"
+          <li
+            v-for="lobby in lobbies"
+            :key="lobby.roomId"
+          >
+            <span>{{ lobby.hostName }} · {{ lobby.playerCount }}/8</span>
+            <button
+              type="button"
+              class="diff-btn"
+              :disabled="joining"
+              @click="joinLobby(lobby.roomId)"
+            >
+              JOIN
+            </button>
+          </li>
+        </ul>
+        <p
+          v-else
+          class="cta-note"
         >
-          {{ joining ? '…' : 'GO' }}
-        </button>
-      </form>
+          {{ loadingLobbies ? 'Loading…' : 'No open lobbies — create one' }}
+        </p>
+      </div>
 
       <NuxtLink
         to="/leaderboard"
@@ -120,7 +156,7 @@ async function joinRoom() {
         {{ error }}
       </p>
       <p class="cta-note">
-        Multiplayer: 2–8 racers · share a link or enter a code
+        Multiplayer: create a room or join an open lobby
       </p>
     </div>
 
@@ -130,3 +166,10 @@ async function joinRoom() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.lobby-browser {
+  width: min(420px, 100%);
+  margin: 0 auto;
+}
+</style>

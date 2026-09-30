@@ -71,7 +71,38 @@ const {
 
 let socket: PartySocket | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
+let lobbyHeartbeat: ReturnType<typeof setInterval> | null = null
 let raceStartedLocal = false
+
+async function putLobby(status: 'open' | 'closed', state = roomState.value) {
+  const active = Object.values(state.players).filter((p) => !p.disconnected)
+  const host = active[0]?.name || displayName.value
+  try {
+    await $fetch(`/api/lobbies/${roomId.value}`, {
+      method: 'PUT',
+      body: {
+        hostName: host,
+        playerCount: active.length,
+        status,
+      },
+    })
+  } catch {
+    /* listing is best-effort */
+  }
+}
+
+function syncLobbyListing(state: RoomState) {
+  if (lobbyHeartbeat) {
+    clearInterval(lobbyHeartbeat)
+    lobbyHeartbeat = null
+  }
+  if (state.status === 'lobby' && state.players[playerId.value]) {
+    putLobby('open', state)
+    lobbyHeartbeat = setInterval(() => putLobby('open'), 30_000)
+  } else if (state.status !== 'lobby') {
+    putLobby('closed', state)
+  }
+}
 
 const me = computed(() => roomState.value.players[playerId.value])
 
@@ -212,9 +243,7 @@ function onState(state: RoomState) {
     if (screen.value !== 'start') resetForRematch()
   }
 
-  if (state.status === 'finished' && screen.value === 'game') {
-    // wait for local finish or show result from server
-  }
+  syncLobbyListing(state)
 }
 
 onMounted(() => {
@@ -277,6 +306,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearCountdown()
+  if (lobbyHeartbeat) clearInterval(lobbyHeartbeat)
+  putLobby('closed')
   destroy()
   socket?.close()
 })

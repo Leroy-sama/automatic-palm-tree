@@ -18,10 +18,12 @@ import {
 definePageMeta({ layout: 'default' })
 
 const STORE = 'typerace-practice'
+const { status, token } = useAuth()
 const state = ref<PracticeState>(NEW_STATE())
 const newKey = ref<string | null>(null)
-/** Unlocked letters selected for this drill; empty = auto focus weakest. */
 const selected = ref<string[]>([])
+const loading = ref(true)
+const saveError = ref('')
 
 const {
   screen,
@@ -79,7 +81,6 @@ function toggleKey(c: string) {
 function pickRandom() {
   const open = [...openKeys.value]
   if (!open.length) return
-  // ~half of unlocked letters, at least one
   const n = Math.max(1, Math.ceil(open.length / 2))
   const shuffled = open.sort(() => Math.random() - 0.5)
   selected.value = shuffled.slice(0, n)
@@ -89,10 +90,24 @@ function clearSelection() {
   selected.value = []
 }
 
+async function persist() {
+  if (status.value !== 'authenticated' || !token.value) return
+  localStorage.setItem(STORE, JSON.stringify(state.value))
+  try {
+    await $fetch('/api/practice', {
+      method: 'PUT',
+      headers: { Authorization: token.value },
+      body: { level: state.value.level, stats: state.value.stats },
+    })
+    saveError.value = ''
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage || 'Could not save progress'
+  }
+}
+
 function start() {
   newKey.value = null
   lastHit = null
-  // Drop any selected keys that somehow got locked again (reset).
   selected.value = selected.value.filter(c => openKeys.value.includes(c))
   configure({
     quote: {
@@ -101,36 +116,113 @@ function start() {
     },
     cpu: false,
     onKey,
-    onFinish: () => {
+    onFinish: async () => {
       newKey.value = maybeUnlock(state.value)
-      localStorage.setItem(STORE, JSON.stringify(state.value))
+      await persist()
     },
   })
   startRace()
 }
 
-function reset() {
+async function reset() {
   if (!confirm('Reset all practice progress?')) return
   state.value = NEW_STATE()
   selected.value = []
   localStorage.removeItem(STORE)
+  if (status.value === 'authenticated' && token.value) {
+    try {
+      await $fetch('/api/practice', {
+        method: 'DELETE',
+        headers: { Authorization: token.value },
+      })
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
-onMounted(() => {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE) ?? 'null')
-    if (saved && typeof saved.level === 'number' && saved.stats) state.value = saved
-  } catch {
-    /* corrupt save: start fresh */
+async function loadProgress() {
+  loading.value = true
+  saveError.value = ''
+  if (status.value !== 'authenticated' || !token.value) {
+    loading.value = false
+    return
   }
+  try {
+    const remote = await $fetch<{ level: number; stats: PracticeState['stats'] }>('/api/practice', {
+      headers: { Authorization: token.value },
+    })
+    const hasRemote = remote.level > 0 || Object.keys(remote.stats || {}).length > 0
+    if (hasRemote) {
+      state.value = { level: remote.level, stats: remote.stats || {} }
+    } else {
+      // Migrate one-time localStorage save up to the account.
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE) ?? 'null')
+        if (saved && typeof saved.level === 'number' && saved.stats) {
+          state.value = saved
+          await persist()
+          localStorage.removeItem(STORE)
+        }
+      } catch {
+        /* corrupt local: start fresh */
+      }
+    }
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage || 'Could not load progress'
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(status, (s) => {
+  if (s === 'authenticated') loadProgress()
 })
 
+onMounted(() => loadProgress())
 onBeforeUnmount(() => destroy())
 </script>
 
 <template>
+  <div
+    v-if="status !== 'authenticated'"
+    class="result-screen"
+  >
+    <div class="result-banner win pixel-font">
+      PRACTICE
+    </div>
+    <p class="cta-note">
+      Sign in to save your letter progress across devices.
+    </p>
+    <div class="btn-row">
+      <NuxtLink
+        to="/login"
+        class="again-btn pixel-font"
+        style="text-decoration: none"
+      >
+        LOGIN
+      </NuxtLink>
+      <NuxtLink
+        to="/register"
+        class="action-btn secondary pixel-font"
+        style="text-decoration: none"
+      >
+        JOIN
+      </NuxtLink>
+    </div>
+  </div>
+
+  <div
+    v-else-if="loading"
+    class="result-screen"
+  >
+    <p class="cta-note">
+      Loading progress…
+    </p>
+  </div>
+
   <GameScreen
-    v-if="screen === 'game'"
+    v-else-if="screen === 'game'"
     :hud-time="hudTime"
     :hud-wpm="hudWpm"
     :hud-acc="hudAcc"
@@ -139,6 +231,7 @@ onBeforeUnmount(() => destroy())
     :hint="`focus: ${focusHint} · wrong keys stay on the same letter`"
     @keydown="onKeydown"
   />
+
   <div
     v-else
     class="result-screen"
@@ -151,6 +244,12 @@ onBeforeUnmount(() => destroy())
       class="cta-note"
     >
       New letter unlocked: {{ newKey.toUpperCase() }}
+    </p>
+    <p
+      v-if="saveError"
+      class="form-error"
+    >
+      {{ saveError }}
     </p>
     <div
       v-if="result"
@@ -181,6 +280,11 @@ onBeforeUnmount(() => destroy())
         </div>
       </div>
     </div>
+
+    <PracticeKeyboard
+      :unlocked="openKeys"
+      :focus="selected.length ? selected.join('') : autoFocus"
+    />
 
     <div class="key-grid">
       <button

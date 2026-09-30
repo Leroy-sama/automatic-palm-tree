@@ -20,3 +20,21 @@ export const scores = sqliteTable('scores', {
   roomId: text('room_id'),
   createdAt: integer('created_at').notNull(),
 })
+
+export const practiceProgress = sqliteTable('practice_progress', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  level: integer('level').notNull(),
+  /** JSON: Record<letter, { n, ms, err }> */
+  stats: text('stats').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+})
+
+export const lobbies = sqliteTable('lobbies', {
+  roomId: text('room_id').primaryKey(),
+  hostName: text('host_name').notNull(),
+  playerCount: integer('player_count').notNull(),
+  status: text('status').notNull(), // open | closed
+  updatedAt: integer('updated_at').notNull(),
+})

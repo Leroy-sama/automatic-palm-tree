@@ -1,12 +1,17 @@
+import { WORDS } from './words'
+
 // keybr-style adaptive practice: unlock letters one at a time, drill the weakest one.
 
 /** Home-position index/middle fingers + their top-row vowels, so fake words work from session one. */
 export const START_KEYS = 'fjdkei'
 /** Remaining letters, most common first. */
 export const UNLOCK_ORDER = 'taonshrlcumwgypbvxqz'
-/** Pass when recent accuracy ≥ 70% (err ≤ 0.30). */
-export const MAX_ERR = 0.3
+/** Pass when recent accuracy ≥ 90% (err ≤ 0.10). */
+export const MAX_ERR = 0.1
 export const MIN_SAMPLES = 10
+/** Prefer real English words once this many letters are unlocked. */
+export const REAL_WORD_MIN_KEYS = 10
+const REAL_WORD_MIN_POOL = 15
 /** Gaps longer than this are pauses, not typing speed. */
 export const MAX_SAMPLE_MS = 2000
 
@@ -54,21 +59,9 @@ export function maybeUnlock(s: PracticeState): string | null {
   return UNLOCK_ORDER[s.level++]!
 }
 
-// ponytail: letter-pair model from a small built-in word list; swap in a bigger corpus if words feel repetitive.
-const CORPUS = `the and that have for not with you this but his from they say her she will one all would there
-their what out about who get which when make can like time just him know take people into year your good some
-could them see other than then now look only come its over think also back after use two how our work first well
-way even new want because any these give day most find here thing many tell very through life child world down
-side kind hand place feel ask need house high keep old last long great little under never begin seem help talk
-turn start might show hear play run move live believe hold bring happen write provide sit stand lose pay meet
-include continue set learn change lead understand watch follow stop create speak read spend grow open walk win
-offer remember love consider appear buy wait serve die send expect build stay fall cut reach kill remain suggest
-raise pass sell require report decide pull join just jump judge joke major enjoy object subject project quick
-quite quiet equal question size zero lazy prize freeze box next fix mix exit exact extra taxi fake kid kite desk
-risk dark drink quick knife field fried fire ride idea deep feed diet edit`
-
+// ponytail: letter-pair model from WORDS; fake words only until enough keys unlock.
 const CHAIN: Record<string, string> = {}
-for (const w of CORPUS.match(/[a-z]+/g)!) {
+for (const w of WORDS) {
   const s = ' ' + w
   for (let i = 0; i < s.length - 1; i++) CHAIN[s[i]!] = (CHAIN[s[i]!] ?? '') + s[i + 1]
 }
@@ -91,6 +84,12 @@ export function fakeWord(allowed: string, focus: string, rand = Math.random): st
   }
 }
 
+export function realWordsFor(allowed: string, focus: string): string[] {
+  const escaped = [...allowed].map(c => (/[[\]\\^$-]/.test(c) ? `\\${c}` : c)).join('')
+  const ok = new RegExp(`^[${escaped}]+$`)
+  return WORDS.filter(w => w.includes(focus) && ok.test(w))
+}
+
 /** Build drill text. `focusPool` = unlocked letters to rotate as focus; empty → auto weakest. */
 export function practiceText(
   s: PracticeState,
@@ -101,8 +100,16 @@ export function practiceText(
   const allowed = unlockedKeys(s)
   const picks = [...focusPool].filter(c => allowed.includes(c))
   const pool = picks.length ? picks : [focusKey(s)]
+  const useReal = allowed.length >= REAL_WORD_MIN_KEYS
+
   return Array.from({ length: words }, () => {
     const focus = pool[Math.floor(rand() * pool.length)]!
+    if (useReal) {
+      const matches = realWordsFor(allowed, focus)
+      if (matches.length >= REAL_WORD_MIN_POOL) {
+        return matches[Math.floor(rand() * matches.length)]!
+      }
+    }
     return fakeWord(allowed, focus, rand)
   }).join(' ')
 }

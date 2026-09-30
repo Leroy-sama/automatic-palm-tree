@@ -1,4 +1,8 @@
 // Keep self-check in sync with app/utils/quotes + app/utils/practice
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 function correctPrefixLength(text, typed) {
   let n = 0
   const limit = Math.min(text.length, typed.length)
@@ -45,7 +49,7 @@ console.log('useTypingEngine progress check: ok')
 // ---- practice (mirrors app/utils/practice.ts) ----
 const START_KEYS = 'fjdkei'
 const UNLOCK_ORDER = 'taonshrlcumwgypbvxqz'
-const MAX_ERR = 0.3
+const MAX_ERR = 0.1
 const MIN_SAMPLES = 10
 const MAX_SAMPLE_MS = 2000
 const EMA = 0.1
@@ -100,6 +104,29 @@ for (const c of START_KEYS) {
 for (let i = 0; i < 5; i++) recordKey(messy, START_KEYS[0], false, null)
 assert(messy.stats[START_KEYS[0]].err > MAX_ERR, 'err above passmark')
 assert(maybeUnlock(messy) === null, 'errors block unlock')
-assert(keyAcc({ n: 10, ms: 200, err: 0.3 }) === 70, '70% accuracy')
+assert(keyAcc({ n: 10, ms: 200, err: 0.1 }) === 90, '90% accuracy')
 
 console.log('practice check: ok')
+
+// Real-word filter / fallback (mirrors practice.ts + words.ts)
+const here = dirname(fileURLToPath(import.meta.url))
+const wordsSrc = readFileSync(join(here, '../app/utils/words.ts'), 'utf8')
+const wordBlob = wordsSrc.match(/`([\s\S]*?)`/)?.[1] || ''
+const WORDS = wordBlob.trim().split(/\s+/).filter((w, i, a) => /^[a-z]+$/.test(w) && a.indexOf(w) === i)
+assert(WORDS.length > 200, 'word list loaded')
+
+function realWordsFor(allowed, focus) {
+  const escaped = [...allowed].map(c => (/[[\]\\^$-]/.test(c) ? `\\${c}` : c)).join('')
+  const ok = new RegExp(`^[${escaped}]+$`)
+  return WORDS.filter(w => w.includes(focus) && ok.test(w))
+}
+
+const early = realWordsFor(START_KEYS, 'f')
+assert(early.length < 15, 'early keys have few real words → fake fallback')
+const laterAllowed = START_KEYS + UNLOCK_ORDER.slice(0, 8)
+assert(laterAllowed.length >= 10, 'later pool unlocks real-word mode')
+const later = realWordsFor(laterAllowed, 't')
+assert(later.length >= 15, 'enough real words once keys unlock')
+assert(later.every(w => [...w].every(c => laterAllowed.includes(c))), 'real words stay in charset')
+
+console.log('words check: ok')
