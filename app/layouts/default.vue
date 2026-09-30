@@ -13,6 +13,7 @@ async function logout() {
       <div class="nav-links">
         <NuxtLink to="/">HOME</NuxtLink>
         <NuxtLink to="/solo">SOLO</NuxtLink>
+        <NuxtLink to="/practice">PRACTICE</NuxtLink>
         <NuxtLink to="/leaderboard">BOARD</NuxtLink>
       </div>
       <div class="nav-user">

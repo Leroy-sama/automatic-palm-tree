@@ -59,6 +59,13 @@ async function joinRoom() {
       >
         PLAY SOLO
       </NuxtLink>
+      <NuxtLink
+        to="/practice"
+        class="action-btn pixel-font"
+        style="text-decoration: none; display: inline-block"
+      >
+        PRACTICE
+      </NuxtLink>
       <button
         type="button"
         class="action-btn pixel-font"

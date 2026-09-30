@@ -74,6 +74,7 @@ export function useTypingEngine() {
   let externalQuote: Quote | null = null
   let onProgress: ((pct: number, wpm: number, acc: number) => void) | null = null
   let onFinish: ((r: RaceResult) => void) | null = null
+  let onKey: ((expected: string, ok: boolean) => void) | null = null
   let cpuEnabled = true
 
   const promptChars = computed<PromptChar[]>(() => {
@@ -109,12 +110,14 @@ export function useTypingEngine() {
     locked?: boolean
     onProgress?: (pct: number, wpm: number, acc: number) => void
     onFinish?: (r: RaceResult) => void
+    onKey?: (expected: string, ok: boolean) => void
   }) {
     externalQuote = opts.quote ?? null
     cpuEnabled = opts.cpu !== false
     inputLocked.value = !!opts.locked
     onProgress = opts.onProgress ?? null
     onFinish = opts.onFinish ?? null
+    onKey = opts.onKey ?? null
   }
 
   function unlockInput() {
@@ -278,6 +281,7 @@ export function useTypingEngine() {
 
     const expected = quote.value!.text[typed.value.length]
     totalKeystrokes.value++
+    onKey?.(expected!, e.key === expected)
     if (e.key !== expected) {
       // Stay on the same letter until correct — no advance, no step-back
       mistakes.value++
