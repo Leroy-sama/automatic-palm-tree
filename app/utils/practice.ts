@@ -4,8 +4,8 @@
 export const START_KEYS = 'fjdkei'
 /** Remaining letters, most common first. */
 export const UNLOCK_ORDER = 'taonshrlcumwgypbvxqz'
-/** Pass when recent accuracy ≥ 90% (err ≤ 0.10). */
-export const MAX_ERR = 0.1
+/** Pass when recent accuracy ≥ 70% (err ≤ 0.30). */
+export const MAX_ERR = 0.3
 export const MIN_SAMPLES = 10
 /** Gaps longer than this are pauses, not typing speed. */
 export const MAX_SAMPLE_MS = 2000
@@ -91,8 +91,18 @@ export function fakeWord(allowed: string, focus: string, rand = Math.random): st
   }
 }
 
-export function practiceText(s: PracticeState, words = 15, rand = Math.random): string {
+/** Build drill text. `focusPool` = unlocked letters to rotate as focus; empty → auto weakest. */
+export function practiceText(
+  s: PracticeState,
+  words = 15,
+  rand = Math.random,
+  focusPool = '',
+): string {
   const allowed = unlockedKeys(s)
-  const focus = focusKey(s)
-  return Array.from({ length: words }, () => fakeWord(allowed, focus, rand)).join(' ')
+  const picks = [...focusPool].filter(c => allowed.includes(c))
+  const pool = picks.length ? picks : [focusKey(s)]
+  return Array.from({ length: words }, () => {
+    const focus = pool[Math.floor(rand() * pool.length)]!
+    return fakeWord(allowed, focus, rand)
+  }).join(' ')
 }

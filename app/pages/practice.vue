@@ -20,6 +20,8 @@ definePageMeta({ layout: 'default' })
 const STORE = 'typerace-practice'
 const state = ref<PracticeState>(NEW_STATE())
 const newKey = ref<string | null>(null)
+/** Unlocked letters selected for this drill; empty = auto focus weakest. */
+const selected = ref<string[]>([])
 
 const {
   screen,
@@ -40,15 +42,22 @@ const lanes = computed<Lane[]>(() => [
   { id: 'you', label: 'YOU', pct: playerPct.value, running: running.value, colorClass: 'p1' },
 ])
 
-const focus = computed(() => focusKey(state.value))
+const autoFocus = computed(() => focusKey(state.value))
+const openKeys = computed(() => unlockedKeys(state.value))
 const keys = computed(() => {
-  const open = unlockedKeys(state.value)
+  const open = openKeys.value
   return [...START_KEYS + UNLOCK_ORDER].map(c => ({
     c,
     locked: !open.includes(c),
     done: keyDone(state.value.stats[c]),
     acc: keyAcc(state.value.stats[c]),
+    picked: selected.value.includes(c),
   }))
+})
+
+const focusHint = computed(() => {
+  if (!selected.value.length) return `auto: ${autoFocus.value.toUpperCase()}`
+  return selected.value.map(c => c.toUpperCase()).join(' ')
 })
 
 let lastHit: number | null = null
@@ -57,15 +66,39 @@ function onKey(expected: string, ok: boolean) {
   if (/[a-z]/.test(expected)) {
     recordKey(state.value, expected, ok, lastHit === null ? null : now - lastHit)
   }
-  // Timed from the previous correct key, so misses show up as slowness too.
   if (ok) lastHit = now
+}
+
+function toggleKey(c: string) {
+  if (!openKeys.value.includes(c)) return
+  selected.value = selected.value.includes(c)
+    ? selected.value.filter(x => x !== c)
+    : [...selected.value, c]
+}
+
+function pickRandom() {
+  const open = [...openKeys.value]
+  if (!open.length) return
+  // ~half of unlocked letters, at least one
+  const n = Math.max(1, Math.ceil(open.length / 2))
+  const shuffled = open.sort(() => Math.random() - 0.5)
+  selected.value = shuffled.slice(0, n)
+}
+
+function clearSelection() {
+  selected.value = []
 }
 
 function start() {
   newKey.value = null
   lastHit = null
+  // Drop any selected keys that somehow got locked again (reset).
+  selected.value = selected.value.filter(c => openKeys.value.includes(c))
   configure({
-    quote: { text: practiceText(state.value), src: 'PRACTICE' },
+    quote: {
+      text: practiceText(state.value, 15, Math.random, selected.value.join('')),
+      src: 'PRACTICE',
+    },
     cpu: false,
     onKey,
     onFinish: () => {
@@ -79,6 +112,7 @@ function start() {
 function reset() {
   if (!confirm('Reset all practice progress?')) return
   state.value = NEW_STATE()
+  selected.value = []
   localStorage.removeItem(STORE)
 }
 
@@ -102,7 +136,7 @@ onBeforeUnmount(() => destroy())
     :hud-acc="hudAcc"
     :lanes="lanes"
     :chars="promptChars"
-    :hint="`focus letter: ${focus.toUpperCase()} · wrong keys stay on the same letter`"
+    :hint="`focus: ${focusHint} · wrong keys stay on the same letter`"
     @keydown="onKeydown"
   />
   <div
@@ -149,19 +183,22 @@ onBeforeUnmount(() => destroy())
     </div>
 
     <div class="key-grid">
-      <div
+      <button
         v-for="k in keys"
         :key="k.c"
+        type="button"
         class="key"
-        :class="{ locked: k.locked, done: k.done, focus: k.c === focus }"
-        :title="k.locked ? 'locked' : `${k.acc}%`"
+        :class="{ locked: k.locked, done: k.done, picked: k.picked, focus: !selected.length && k.c === autoFocus }"
+        :disabled="k.locked"
+        :title="k.locked ? 'locked' : `${k.acc}% — click to select`"
+        @click="toggleKey(k.c)"
       >
         <span class="pixel-font">{{ k.c.toUpperCase() }}</span>
         <small>{{ k.locked ? '' : `${k.acc}%` }}</small>
-      </div>
+      </button>
     </div>
     <p class="cta-note">
-      Focus letter: {{ focus.toUpperCase() }} · next letter unlocks when every letter hits
+      Click unlocked letters to practice them · empty = auto (weakest) · unlock at
       {{ Math.round((1 - MAX_ERR) * 100) }}%+ accuracy
     </p>
 
@@ -172,6 +209,21 @@ onBeforeUnmount(() => destroy())
         @click="start"
       >
         START
+      </button>
+      <button
+        type="button"
+        class="action-btn secondary pixel-font"
+        @click="pickRandom"
+      >
+        RANDOM
+      </button>
+      <button
+        type="button"
+        class="action-btn secondary pixel-font"
+        :disabled="!selected.length"
+        @click="clearSelection"
+      >
+        CLEAR
       </button>
       <button
         type="button"
@@ -203,6 +255,12 @@ onBeforeUnmount(() => destroy())
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.key:disabled {
+  cursor: not-allowed;
 }
 
 .key span {
@@ -226,5 +284,11 @@ onBeforeUnmount(() => destroy())
 .key.focus {
   border-color: var(--gold);
   color: var(--gold);
+}
+
+.key.picked {
+  border-color: var(--p1);
+  color: var(--p1);
+  background: #0a2038;
 }
 </style>
