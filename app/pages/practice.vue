@@ -4,11 +4,10 @@ import {
   MAX_ERR,
   NEW_STATE,
   START_KEYS,
-  TARGET_WPM,
   UNLOCK_ORDER,
   focusKey,
+  keyAcc,
   keyDone,
-  keyWpm,
   maybeUnlock,
   practiceText,
   recordKey,
@@ -48,7 +47,7 @@ const keys = computed(() => {
     c,
     locked: !open.includes(c),
     done: keyDone(state.value.stats[c]),
-    wpm: keyWpm(state.value.stats[c]),
+    acc: keyAcc(state.value.stats[c]),
   }))
 })
 
@@ -155,15 +154,15 @@ onBeforeUnmount(() => destroy())
         :key="k.c"
         class="key"
         :class="{ locked: k.locked, done: k.done, focus: k.c === focus }"
-        :title="k.locked ? 'locked' : `${k.wpm} WPM`"
+        :title="k.locked ? 'locked' : `${k.acc}%`"
       >
         <span class="pixel-font">{{ k.c.toUpperCase() }}</span>
-        <small>{{ k.locked ? '' : k.wpm }}</small>
+        <small>{{ k.locked ? '' : `${k.acc}%` }}</small>
       </div>
     </div>
     <p class="cta-note">
       Focus letter: {{ focus.toUpperCase() }} · next letter unlocks when every letter hits
-      {{ TARGET_WPM }} WPM at {{ 100 - MAX_ERR * 100 }}%+ accuracy
+      {{ Math.round((1 - MAX_ERR) * 100) }}%+ accuracy
     </p>
 
     <div class="btn-row">

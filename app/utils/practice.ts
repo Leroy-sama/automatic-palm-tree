@@ -4,8 +4,8 @@
 export const START_KEYS = 'fjdkei'
 /** Remaining letters, most common first. */
 export const UNLOCK_ORDER = 'taonshrlcumwgypbvxqz'
-export const TARGET_WPM = 35
-export const MAX_ERR = 0.05
+/** Pass when recent accuracy ≥ 90% (err ≤ 0.10). */
+export const MAX_ERR = 0.1
 export const MIN_SAMPLES = 10
 /** Gaps longer than this are pauses, not typing speed. */
 export const MAX_SAMPLE_MS = 2000
@@ -22,20 +22,20 @@ export function unlockedKeys(s: PracticeState): string {
   return START_KEYS + UNLOCK_ORDER.slice(0, s.level)
 }
 
-export function keyWpm(k?: KeyStat): number {
-  return k && k.n && k.ms ? Math.round(60000 / k.ms / 5) : 0
+export function keyAcc(k?: KeyStat): number {
+  return k ? Math.round(100 * (1 - k.err)) : 0
 }
 
 export function keyDone(k?: KeyStat): boolean {
-  return !!k && k.n >= MIN_SAMPLES && keyWpm(k) >= TARGET_WPM && k.err <= MAX_ERR
+  return !!k && k.n >= MIN_SAMPLES && k.err <= MAX_ERR
 }
 
-/** Weakest unlocked key: unseen/slow first. */
+/** Weakest unlocked key: unseen / lowest accuracy first. */
 export function focusKey(s: PracticeState): string {
   const keys = [...unlockedKeys(s)]
   const weak = keys.filter(c => !keyDone(s.stats[c]))
   const pool = weak.length ? weak : keys
-  return pool.reduce((a, b) => (keyWpm(s.stats[b]) < keyWpm(s.stats[a]) ? b : a))
+  return pool.reduce((a, b) => (keyAcc(s.stats[b]) < keyAcc(s.stats[a]) ? b : a))
 }
 
 /** One keystroke on `key`. ms = time since previous keystroke (null for first key). */

@@ -45,8 +45,7 @@ console.log('useTypingEngine progress check: ok')
 // ---- practice (mirrors app/utils/practice.ts) ----
 const START_KEYS = 'fjdkei'
 const UNLOCK_ORDER = 'taonshrlcumwgypbvxqz'
-const TARGET_WPM = 35
-const MAX_ERR = 0.05
+const MAX_ERR = 0.1
 const MIN_SAMPLES = 10
 const MAX_SAMPLE_MS = 2000
 const EMA = 0.1
@@ -54,17 +53,17 @@ const EMA = 0.1
 function unlockedKeys(s) {
   return START_KEYS + UNLOCK_ORDER.slice(0, s.level)
 }
-function keyWpm(k) {
-  return k && k.n && k.ms ? Math.round(60000 / k.ms / 5) : 0
+function keyAcc(k) {
+  return k ? Math.round(100 * (1 - k.err)) : 0
 }
 function keyDone(k) {
-  return !!k && k.n >= MIN_SAMPLES && keyWpm(k) >= TARGET_WPM && k.err <= MAX_ERR
+  return !!k && k.n >= MIN_SAMPLES && k.err <= MAX_ERR
 }
 function focusKey(s) {
   const keys = [...unlockedKeys(s)]
   const weak = keys.filter(c => !keyDone(s.stats[c]))
   const pool = weak.length ? weak : keys
-  return pool.reduce((a, b) => (keyWpm(s.stats[b]) < keyWpm(s.stats[a]) ? b : a))
+  return pool.reduce((a, b) => (keyAcc(s.stats[b]) < keyAcc(s.stats[a]) ? b : a))
 }
 function recordKey(s, key, ok, ms) {
   const k = (s.stats[key] ??= { n: 0, ms: 0, err: 0 })
@@ -84,7 +83,7 @@ assert(unlockedKeys(s) === START_KEYS, 'start keys')
 assert(focusKey(s) === START_KEYS[0], 'unseen focus is first start key')
 
 for (const c of START_KEYS) {
-  for (let i = 0; i < 12; i++) recordKey(s, c, true, 60000 / 5 / TARGET_WPM)
+  for (let i = 0; i < 12; i++) recordKey(s, c, true, 200)
   assert(keyDone(s.stats[c]), `key ${c} done`)
 }
 const unlocked = maybeUnlock(s)
@@ -93,12 +92,14 @@ assert(s.level === 1, 'level bumped')
 assert(unlockedKeys(s).includes(UNLOCK_ORDER[0]), 'new key in pool')
 assert(focusKey(s) === UNLOCK_ORDER[0], 'focus moves to new letter')
 
-const slow = { level: 0, stats: {} }
+const messy = { level: 0, stats: {} }
 for (const c of START_KEYS) {
-  for (let i = 0; i < 12; i++) recordKey(slow, c, true, 200)
+  for (let i = 0; i < 12; i++) recordKey(messy, c, true, 200)
 }
-recordKey(slow, START_KEYS[0], false, null)
-assert(maybeUnlock(slow) === null, 'errors block unlock')
-assert(keyWpm({ n: 1, ms: 240, err: 0 }) === 50, '240ms ≈ 50 wpm')
+// Enough recent misses that err stays above 10%
+for (let i = 0; i < 5; i++) recordKey(messy, START_KEYS[0], false, null)
+assert(messy.stats[START_KEYS[0]].err > MAX_ERR, 'err above passmark')
+assert(maybeUnlock(messy) === null, 'errors block unlock')
+assert(keyAcc({ n: 10, ms: 200, err: 0.1 }) === 90, '90% accuracy')
 
 console.log('practice check: ok')
