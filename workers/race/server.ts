@@ -10,6 +10,7 @@ export type Player = {
   accuracy: number
   finished: boolean
   disconnected: boolean
+  wantRematch: boolean
 }
 
 export type RoomStatus = 'lobby' | 'countdown' | 'racing' | 'finished'
@@ -81,6 +82,7 @@ export class RaceServer extends Server {
       if (existing) {
         existing.disconnected = false
         existing.name = name.slice(0, 24) || existing.name
+        existing.wantRematch ??= false
       } else if (this.state.status === 'lobby' || this.state.status === 'finished') {
         const activeCount = Object.values(this.state.players).filter((p) => !p.disconnected).length
         if (activeCount >= MAX_PLAYERS) {
@@ -101,6 +103,7 @@ export class RaceServer extends Server {
           accuracy: 100,
           finished: false,
           disconnected: false,
+          wantRematch: false,
         }
       } else {
         // late join — spectate only (no player entry)
@@ -122,11 +125,8 @@ export class RaceServer extends Server {
     const player = this.state.players[playerId]!
 
     if (msg.type === 'ready') {
-      if (this.state.status !== 'lobby' && this.state.status !== 'finished') return
-      if (this.state.status === 'finished') {
-        // reset to lobby for rematch readiness
-        this.resetToLobby()
-      }
+      // Ready only in lobby — rematch votes happen on the result screen.
+      if (this.state.status !== 'lobby') return
       player.ready = !player.ready
       this.broadcastState()
       this.maybeStartCountdown()
@@ -157,7 +157,13 @@ export class RaceServer extends Server {
     }
 
     if (msg.type === 'rematch') {
-      this.resetToLobby()
+      // Only after every active racer finished; everyone must vote before lobby.
+      if (this.state.status !== 'finished') return
+      player.wantRematch = true
+      const active = Object.values(this.state.players).filter((p) => !p.disconnected)
+      if (active.length >= 1 && active.every((p) => p.wantRematch)) {
+        this.resetToLobby()
+      }
       this.broadcastState()
     }
   }
@@ -176,6 +182,7 @@ export class RaceServer extends Server {
       p.wpm = 0
       p.accuracy = 100
       p.finished = false
+      p.wantRematch = false
     }
   }
 

@@ -16,6 +16,7 @@ type Player = {
   accuracy: number
   finished: boolean
   disconnected: boolean
+  wantRematch?: boolean
 }
 
 type RoomState = {
@@ -94,6 +95,14 @@ const readyCount = computed(
   () =>
     Object.values(roomState.value.players).filter((p) => !p.disconnected && p.ready).length,
 )
+
+const rematchCount = computed(
+  () =>
+    Object.values(roomState.value.players).filter((p) => !p.disconnected && p.wantRematch)
+      .length,
+)
+
+const allFinished = computed(() => roomState.value.status === 'finished')
 
 const winnerLabel = computed(() => {
   const finished = Object.values(roomState.value.players)
@@ -199,6 +208,8 @@ function onState(state: RoomState) {
     scoreSaved.value = null
     isNewBest.value = null
     clearCountdown()
+    // Everyone returns to lobby together when the room resets (rematch).
+    if (screen.value !== 'start') resetForRematch()
   }
 
   if (state.status === 'finished' && screen.value === 'game') {
@@ -275,10 +286,7 @@ function toggleReady() {
 }
 
 function rematch() {
-  raceStartedLocal = false
-  scoreSaved.value = null
-  isNewBest.value = null
-  resetForRematch()
+  if (!allFinished.value || me.value?.wantRematch) return
   send({ type: 'rematch' })
 }
 
@@ -417,11 +425,13 @@ const showLobby = computed(
       </p>
       <div class="btn-row">
         <button
+          v-if="allFinished"
           type="button"
           class="again-btn pixel-font"
+          :disabled="!!me?.wantRematch"
           @click="rematch"
         >
-          REMATCH
+          {{ me?.wantRematch ? 'WAITING…' : 'REMATCH' }}
         </button>
         <NuxtLink
           to="/"
@@ -431,6 +441,18 @@ const showLobby = computed(
           HOME
         </NuxtLink>
       </div>
+      <p
+        v-if="!allFinished"
+        class="cta-note"
+      >
+        Waiting for everyone to finish…
+      </p>
+      <p
+        v-else
+        class="cta-note"
+      >
+        Rematch {{ rematchCount }}/{{ activePlayerCount }} · all must vote to return to lobby
+      </p>
     </div>
   </div>
 </template>
