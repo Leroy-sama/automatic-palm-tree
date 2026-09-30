@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { lobbies } from '../../../database/schema'
+import { lobbies } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const roomId = getRouterParam(event, 'roomId')?.trim()
